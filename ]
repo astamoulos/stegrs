@@ -25,10 +25,14 @@ fn main() {
 
     let mut bits = Vec::new(); 
     for byte in message {
+        println!("{:?}", byte);
         for i in (0..8).rev() {
             bits.push((byte >> i) & 1);
+                
+            let bit = (byte >> i) & 1;
+            print!("{:?}", bit);
         }
+        println!("")
     }
-
     println!("{:?}", bits);
 }
