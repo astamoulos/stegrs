@@ -21,7 +21,7 @@ fn main() {
 
     let img = image::open(args.image).unwrap();
     println!("dimensions {:?}", img.dimensions());
-    println!("path: {:?}, message: {:?}", args.message, message);
+    //println!("path: {:?}, message: {:?}", args.message, img);
 
     let mut bits = Vec::new(); 
     for byte in message {
@@ -30,5 +30,32 @@ fn main() {
         }
     }
 
-    println!("{:?}", bits);
+    println!("{:?}", bits.len());
+    let mut i = 0; 
+
+    for (_, _, mut pixel) in img.pixels() {
+        if i >=  bits.len() {
+            println!("message encoded!a");
+            break;
+        }
+        println!("{}", i);
+        pixel[0] = (pixel[0] & 0xFE) | bits[i];
+        i = i + 1;
+        if i >=  bits.len() {
+            println!("message encoded!a");
+            break;
+        }
+        pixel[1] = (pixel[1] & 0xFE) | bits[i];
+
+        i = i + 1;
+
+        if i >=  bits.len() {
+            println!("message encoded!a");
+            break;
+        }
+        pixel[2] = (pixel[2] & 0xFE) | bits[i];
+        
+        i = i + 1;
+    }
+    let _ = img.save(args.output);
 }
