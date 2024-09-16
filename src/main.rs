@@ -1,8 +1,7 @@
-use std::path::PathBuf;
-use image::{image_dimensions, GenericImage};
 use clap::{Parser, Subcommand};
-use image::{EncodableLayout, GenericImageView, ImageReader};
+use image::{GenericImage, GenericImageView, ImageReader};
 use std::fs;
+use std::path::PathBuf;
 
 // Search for a pattern in a file and display the lines that contain it.
 #[derive(Parser)]
@@ -15,7 +14,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Encode a message into an image
-    E{
+    E {
         /// Image file to encode the message into
         image: PathBuf,
 
@@ -26,83 +25,77 @@ enum Commands {
         output: PathBuf,
     },
     /// Decode a message from an image
-    D{
+    D {
         /// Image file to decode the message from
         image: PathBuf,
     },
 }
 
-
-
-fn encode(image: &PathBuf, message: &PathBuf, output: &PathBuf) -> (){
-    let message = fs::read(message)
-        .expect("Should have been able to read the file");
-
-    println!("{:?}", message.as_bytes());
+fn encode(image_path: &PathBuf, message: &PathBuf, output: &PathBuf) {
+    let message = fs::read(message).expect("Should have been able to read the file");
 
     let length = format!("{:0>9b}", message.len());
 
     let combined_vec: Vec<u8> = length
-        .chars() 
-        .map(|c| c.to_digit(2).unwrap() as u8) 
-        .chain( 
+        .chars()
+        .map(|c| c.to_digit(2).unwrap() as u8)
+        .chain(
             message
                 .into_iter()
-                .flat_map(|byte| (0..8) 
-                    .map(move |i| ((byte & (1 << (7 - i))) != 0) as u8) 
-                )
+                .flat_map(|byte| (0..8).map(move |i| ((byte & (1 << (7 - i))) != 0) as u8)),
         )
         .collect(); // Collect everything into a single Vec<u8>
 
-    println!("{:?}", combined_vec);
-
-    //let image = ImageReader::open(image).unwrap().with_guessed_format().unwrap().decode().unwrap();
-    let mut image = image::open(image).unwrap();
-    let mut i = 0; 
+    let mut image = image::open(image_path).unwrap();
+    let mut i = 0;
     let (w, h) = image.dimensions();
     for y in 0..h {
         for x in 0..w {
             let mut pixel = image.get_pixel(x, y);
-            println!("{i} before{:?}", pixel);
+
             for j in 0..3 {
-                if i <  combined_vec.len() {
+                if i >= combined_vec.len() {
                     pixel[j] = (pixel[j] & 0xFE) | combined_vec[i];
                 }
                 i += 1;
             }
-            println!("{i}  after{:?}", pixel);
+
+            image.put_pixel(x, y, pixel);
+
             if i >= combined_vec.len() {
                 break;
             }
-    
-            image.put_pixel(x, y, pixel);
         }
         if i >= combined_vec.len() {
             break;
         }
     }
-    image.save("testing/output.png").unwrap(); 
+    image.save("testing/output.png").unwrap();
     image.save(output).expect("not ok")
 }
 
 fn decode(image_path: &PathBuf) {
     // Load the image
-    let image = ImageReader::open(image_path).unwrap().with_guessed_format().unwrap().decode().unwrap();
+    let image = ImageReader::open(image_path)
+        .unwrap()
+        .with_guessed_format()
+        .unwrap()
+        .decode()
+        .unwrap();
 
     let mut bits = Vec::new();
 
     let mut mesage = Vec::new();
-    let mut i = 0; 
+    let mut i = 0;
     'outer: for (_, _, pixel) in image.pixels() {
         println!("{:?}", pixel);
         for j in 0..3 {
             if bits.len() < 9 {
                 bits.push(pixel[j] & 1);
                 println!("message decoded!");
-            }
-            else {
+            } else {
                 let length = bits.iter().take(9).fold(0u8, |acc, &bit| (acc << 1) | bit) as usize;
-                if i >= 8*length {
+                if i >= 8 * length {
                     break 'outer;
                 }
                 mesage.push(pixel[j] & 1);
@@ -131,9 +124,13 @@ fn decode(image_path: &PathBuf) {
 
 fn main() {
     let args = Cli::parse();
-    
+
     match &args.command {
-        Commands::E { image, message, output } => encode(&image, &message, &output),
-        Commands::D { image } => decode(&image), 
+        Commands::E {
+            image,
+            message,
+            output,
+        } => encode(image, message, output),
+        Commands::D { image } => decode(image),
     }
 }
